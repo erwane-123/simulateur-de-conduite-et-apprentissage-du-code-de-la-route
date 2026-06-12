@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter_tts/flutter_tts.dart';
 // import 'package:confetti/confetti.dart';
@@ -44,7 +45,7 @@
 
 //   Future<void> _playWelcomeVoice() async {
 //     await _tts.setLanguage('fr-FR');
-//     await _tts.setSpeechRate(0.5);
+//     await _tts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
 //     await _tts.speak(
 //         "Bienvenue à bord mon ami ! Préparez-vous à l'aventure Elite Drive.");
 //   }
@@ -251,7 +252,7 @@ class _WelcomeCelebrationScreenState extends State<WelcomeCelebrationScreen>
 
   Future<void> _playWelcomeVoice() async {
     await _tts.setLanguage('fr-FR');
-    await _tts.setSpeechRate(0.5);
+    await _tts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
     await _tts.speak(
         "Bienvenue à bord mon ami ! Préparez-vous à l'aventure Elite Drive.");
   }

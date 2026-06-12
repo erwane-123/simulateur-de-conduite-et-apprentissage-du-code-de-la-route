@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -79,7 +80,7 @@ class _ManoeuvresScreenState extends State<ManoeuvresScreen> {
 
   Future<void> _initTts() async {
     await _tts.setLanguage('fr-FR');
-    await _tts.setSpeechRate(0.5);
+    await _tts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
   }
 
   void _loadScenario() {
