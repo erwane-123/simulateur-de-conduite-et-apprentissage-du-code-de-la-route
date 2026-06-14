@@ -61,4 +61,14 @@ flutter:
   assets:
     - assets/images/
     - assets/images/questions/
+    - assets/images/questions/series/serie_1/
+    - assets/images/questions/series/serie_2/
+    - assets/images/questions/series/serie_3/
+    - assets/images/questions/series/serie_4/
+    - assets/images/questions/series/serie_5/
+    - assets/images/questions/series/serie_6/
+    - assets/images/questions/series/serie_7/
+    - assets/images/questions/series/serie_8/
+    - assets/images/questions/series/serie_9/
+    - assets/images/questions/series/serie_10/
     - assets/cours/

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:code_route_flutter/widgets/coach_dialog.dart';
@@ -92,7 +93,7 @@ class _CockpitScreenState extends State<CockpitScreen> {
 
   Future<void> _initTts() async {
     await _tts.setLanguage('fr-FR');
-    await _tts.setSpeechRate(0.5);
+    await _tts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
   }
 
   void _playMissionAudio() {

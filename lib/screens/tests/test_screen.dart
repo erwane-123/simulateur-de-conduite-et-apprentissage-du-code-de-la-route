@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 
 import 'package:code_route_flutter/core/constants/app_colors.dart';
@@ -198,7 +199,7 @@ class _TestScreenState extends State<TestScreen> {
   Future<void> _initTts() async {
     _flutterTts = FlutterTts();
     await _flutterTts.setLanguage('fr-FR');
-    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
   }
 
   List<TestQuestion> _localQuestionsForTheme(String permit, String themeId) {
@@ -1299,6 +1300,8 @@ class _TestScreenState extends State<TestScreen> {
         return Image.network(
           path,
           fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
           errorBuilder: (context, error, stackTrace) => fallback,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
@@ -1310,6 +1313,8 @@ class _TestScreenState extends State<TestScreen> {
       return Image.asset(
         path,
         fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
         errorBuilder: (context, error, stackTrace) => fallback,
       );
     }
@@ -1965,24 +1970,27 @@ class _TestScreenState extends State<TestScreen> {
                 const SizedBox(height: 14),
               ],
               Expanded(
-                child: SingleChildScrollView(
+                child: AnimatedSwitcher(
+                  duration: const Duration(seconds: 1),
+                  child: SingleChildScrollView(
+                    key: ValueKey<int>(question.id),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       children: [
                         Container(
-                          height: 200,
+                          height: MediaQuery.sizeOf(context).height * 0.45,
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(15),
+                            color: Colors.black.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: AppColors.primaryPurple,
-                              width: 2,
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
                             ),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(13),
+                            borderRadius: BorderRadius.circular(19),
                             child: _buildQuestionImage(question),
                           ),
                         ),
@@ -2002,6 +2010,7 @@ class _TestScreenState extends State<TestScreen> {
                       ],
                     ),
                   ),
+                ),
                 ),
               ),
             ],

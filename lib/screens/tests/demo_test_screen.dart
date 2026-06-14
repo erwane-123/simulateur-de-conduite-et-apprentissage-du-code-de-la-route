@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -32,7 +33,7 @@ class _DemoTestScreenState extends State<DemoTestScreen> {
   Future<void> _initTts() async {
     _flutterTts = FlutterTts();
     await _flutterTts.setLanguage('fr-FR');
-    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setSpeechRate(kIsWeb ? 1.0 : 0.5);
   }
 
   void _loadDemoQuestions() async {
@@ -218,12 +219,12 @@ class _DemoTestScreenState extends State<DemoTestScreen> {
       if (path.startsWith('http://') || path.startsWith('https://')) {
         return Image.network(
           path,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => fallback,
         );
       }
       return Image.asset(path,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) => fallback);
     }
 
