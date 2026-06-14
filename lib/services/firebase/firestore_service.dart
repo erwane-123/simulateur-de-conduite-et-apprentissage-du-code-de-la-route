@@ -80,6 +80,7 @@ class FirestoreService {
     required String uid,
     required String permitCode,
     required Map<String, dynamic> stats,
+    String? displayName,
   }) async {
     final normalizedPermit = permitCode.toUpperCase();
     final userRef = _db.collection('users').doc(uid);
@@ -91,11 +92,38 @@ class FirestoreService {
     }, SetOptions(merge: true));
 
     await userRef.set({
+      if (displayName != null && displayName.trim().isNotEmpty)
+        'pseudo': displayName.trim(),
       'lastPermitCode': normalizedPermit,
       'xp': stats['xp'] ?? 0,
       'level': stats['level'] ?? 1,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    await _db.collection('leaderboard').doc(uid).set({
+      'uid': uid,
+      'pseudo': (displayName != null && displayName.trim().isNotEmpty)
+          ? displayName.trim()
+          : 'Utilisateur',
+      'permitCode': normalizedPermit,
+      'xp': stats['xp'] ?? 0,
+      'level': stats['level'] ?? 1,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Stream<List<Map<String, dynamic>>> leaderboardStream({int limit = 30}) {
+    return _db
+        .collection('leaderboard')
+        .orderBy('xp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              return {
+                'id': doc.id,
+                ...doc.data(),
+              };
+            }).toList());
   }
 
   Future<void> saveSelectedPermit({

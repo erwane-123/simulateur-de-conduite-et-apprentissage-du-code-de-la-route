@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:code_route_flutter/core/constants/app_colors.dart';
 import 'package:code_route_flutter/services/firebase/auto_ecole_service.dart';
+import 'package:code_route_flutter/services/gamification_service.dart';
 import 'package:code_route_flutter/services/user_progress_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_picker/file_picker.dart';
@@ -756,6 +757,12 @@ class _AutoEcoleScreenState extends State<AutoEcoleScreen> {
               xp: 0,
               level: 1,
             );
+        final level = GamificationService.levelForXp(stats.xp);
+        final xpProgress = level >= GamificationService.maxLevel
+            ? 1.0
+            : ((stats.xp - GamificationService.levelStartXp(level)) /
+                    GamificationService.xpForNextLevel(level))
+                .clamp(0.0, 1.0);
 
         return _buildPanel(
           title: 'Mes statistiques',
@@ -795,7 +802,7 @@ class _AutoEcoleScreenState extends State<AutoEcoleScreen> {
                   Expanded(
                     child: _buildMetric(
                       'Niveau',
-                      '${stats.level}',
+                      '$level',
                       AppColors.primaryPurple,
                     ),
                   ),
@@ -805,7 +812,7 @@ class _AutoEcoleScreenState extends State<AutoEcoleScreen> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
-                  value: ((stats.xp % 1000) / 1000).clamp(0.0, 1.0),
+                  value: xpProgress,
                   minHeight: 7,
                   backgroundColor: Colors.white.withValues(alpha: 0.08),
                   valueColor: const AlwaysStoppedAnimation<Color>(

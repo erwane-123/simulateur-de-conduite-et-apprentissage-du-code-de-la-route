@@ -1,5 +1,6 @@
 import 'package:code_route_flutter/core/constants/app_colors.dart';
 import 'package:code_route_flutter/data/models/theme_code.dart';
+import 'package:code_route_flutter/services/gamification_service.dart';
 import 'package:code_route_flutter/services/user_progress_service.dart';
 import 'package:flutter/material.dart';
 
@@ -51,6 +52,13 @@ class _StatsDetailScreenState extends State<StatsDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final xpLevel = GamificationService.levelForXp(_stats.xp);
+    final xpProgress = xpLevel >= GamificationService.maxLevel
+        ? 1.0
+        : ((_stats.xp - GamificationService.levelStartXp(xpLevel)) /
+                GamificationService.xpForNextLevel(xpLevel))
+            .clamp(0.0, 1.0);
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
@@ -138,7 +146,7 @@ class _StatsDetailScreenState extends State<StatsDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Niveau ${_stats.level}',
+                            'Niveau $xpLevel',
                             style: const TextStyle(
                               color: AppColors.primaryPurple,
                               fontWeight: FontWeight.bold,
@@ -156,7 +164,7 @@ class _StatsDetailScreenState extends State<StatsDetailScreen> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
                         child: LinearProgressIndicator(
-                          value: (_stats.xp % 1000) / 1000,
+                          value: xpProgress,
                           minHeight: 10,
                           backgroundColor: Colors.white.withOpacity(0.08),
                           valueColor: const AlwaysStoppedAnimation<Color>(

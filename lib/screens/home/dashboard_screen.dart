@@ -6,11 +6,14 @@ import 'package:code_route_flutter/screens/candidat/candidat_screen.dart';
 import 'package:code_route_flutter/screens/categories/category_selection_screen.dart';
 import 'package:code_route_flutter/screens/cours/cours_list_screen.dart';
 import 'package:code_route_flutter/screens/dashcam/dashcam_scan_screen.dart';
+import 'package:code_route_flutter/screens/gamification/leaderboard_screen.dart';
 import 'package:code_route_flutter/screens/guides/guides_screen.dart';
 import 'package:code_route_flutter/screens/profile/profile_screen.dart';
 import 'package:code_route_flutter/screens/series/series_screen.dart';
 import 'package:code_route_flutter/screens/themes/theme_selection_screen.dart';
+import 'package:code_route_flutter/services/gamification_service.dart';
 import 'package:code_route_flutter/services/user_progress_service.dart';
+import 'package:code_route_flutter/widgets/gamification/gamification_summary_card.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,6 +26,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final _progressService = UserProgressService();
+  final _gamificationService = GamificationService();
 
   String? _selectedCategory;
   IconData _categoryIcon = Icons.directions_car_rounded;
@@ -33,6 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _streakCount = 0;
   int _xp = 0;
   int _level = 1;
+  GamificationState _gamificationState = GamificationState.empty();
   double _circulationProgress = 0;
   double _conductorProgress = 0;
   double _roadProgress = 0;
@@ -48,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final selectedPermit = await _progressService.getSelectedPermitCode();
     final permitStats =
         await _progressService.getStatsForPermit(selectedPermit);
+    final gamificationState = await _gamificationService.load();
 
     if (!mounted) return;
     setState(() {
@@ -60,7 +66,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _mistakesCount = permitStats.mistakesCount;
       _streakCount = permitStats.streakCount;
       _xp = permitStats.xp;
-      _level = permitStats.level;
+      _level = GamificationService.levelForXp(permitStats.xp);
+      _gamificationState = gamificationState.totalXp > 0
+          ? gamificationState
+          : GamificationState(
+              totalXp: permitStats.xp,
+              level: GamificationService.levelForXp(permitStats.xp),
+              streak: permitStats.streakCount,
+              badges: gamificationState.badges,
+              progress: gamificationState.progress,
+              lastActivityDay: gamificationState.lastActivityDay,
+            );
       _circulationProgress =
           prefs.getDouble('prog_${selectedPermit.toUpperCase()}_1') ??
               prefs.getDouble('prog_circulation') ??
@@ -153,6 +169,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ),
                             );
                           },
+                        ),
+                        const SizedBox(height: 18),
+                        GamificationSummaryCard(
+                          state: _gamificationState,
+                          onLeaderboardTap: _openLeaderboard,
                         ),
                         const SizedBox(height: 18),
                         _StatsGrid(
@@ -302,6 +323,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ),
                               ),
                             ),
+                            _ActionData(
+                              Icons.leaderboard_rounded,
+                              'Classement',
+                              'XP des apprenants',
+                              AppColors.warning,
+                              _openLeaderboard,
+                            ),
                           ],
                         ),
                       ],
@@ -314,6 +342,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openLeaderboard() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+    );
+    if (mounted) await _loadUserData();
   }
 }
 
@@ -393,7 +429,12 @@ class _PrimaryActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = ((xp % 1000) / 1000).clamp(0.0, 1.0);
+    final currentLevel = GamificationService.levelForXp(xp);
+    final levelStart = GamificationService.levelStartXp(currentLevel);
+    final nextStart = GamificationService.nextLevelStartXp(currentLevel);
+    final progress = currentLevel >= GamificationService.maxLevel
+        ? 1.0
+        : ((xp - levelStart) / (nextStart - levelStart)).clamp(0.0, 1.0);
 
     return Container(
       padding: const EdgeInsets.all(18),

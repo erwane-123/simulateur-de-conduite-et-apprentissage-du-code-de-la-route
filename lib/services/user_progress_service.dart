@@ -1,5 +1,6 @@
 import 'package:code_route_flutter/services/firebase/firestore_service.dart';
 import 'package:code_route_flutter/services/firebase/auto_ecole_service.dart';
+import 'package:code_route_flutter/services/gamification_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,13 +22,14 @@ class PermitStats {
   });
 
   factory PermitStats.fromMap(Map<String, dynamic> map) {
+    final xp = _readInt(map['xp']);
     return PermitStats(
       testsCount: _readInt(map['testsCount']),
       successRate: _readInt(map['successRate']),
       mistakesCount: _readInt(map['mistakesCount']),
       streakCount: _readInt(map['streakCount']),
-      xp: _readInt(map['xp']),
-      level: _readInt(map['level'], fallback: 1),
+      xp: xp,
+      level: GamificationService.levelForXp(xp),
     );
   }
 
@@ -54,6 +56,7 @@ class UserProgressService {
   static const String selectedPermitKey = 'selected_permis_category';
   final FirestoreService _firestoreService = FirestoreService();
   final AutoEcoleService _autoEcoleService = AutoEcoleService();
+  final GamificationService _gamificationService = GamificationService();
 
   Future<String> getSelectedPermitCode() async {
     final prefs = await SharedPreferences.getInstance();
@@ -122,29 +125,35 @@ class UserProgressService {
           prefs.getInt('stat_streak_count') ??
           0,
       xp: prefs.getInt(_key('user_xp', permit)) ?? prefs.getInt('user_xp') ?? 0,
-      level: prefs.getInt(_key('user_level', permit)) ??
-          prefs.getInt('user_level') ??
-          1,
+      level: GamificationService.levelForXp(
+        prefs.getInt(_key('user_xp', permit)) ?? prefs.getInt('user_xp') ?? 0,
+      ),
     );
   }
 
-  Future<void> recordTestResult({
+  Future<GamificationReward?> recordTestResult({
     required int score,
     required int total,
     required bool passed,
     required String permitCode,
     String? themeId,
   }) async {
-    if (total <= 0) return;
+    if (total <= 0) return null;
     final prefs = await SharedPreferences.getInstance();
     final permit = permitCode.toUpperCase();
+    final reward = await _gamificationService.recordSession(
+      score: score,
+      total: total,
+      passed: passed,
+      themeId: themeId,
+    );
     final currentStats = await getStatsForPermit(permit);
 
     final int currentTests = currentStats.testsCount;
     final int currentRate = currentStats.successRate;
     final int currentMistakes = currentStats.mistakesCount;
     final int currentXp = currentStats.xp;
-    final int previousLevel = (currentXp ~/ 1000) + 1;
+    final int previousLevel = GamificationService.levelForXp(currentXp);
 
     final int percentage = ((score / total) * 100).round();
     final int updatedTests = currentTests + 1;
@@ -154,7 +163,7 @@ class UserProgressService {
 
     final int xpGain = (score * 10) + (passed ? 50 : 0);
     final int updatedXp = currentXp + xpGain;
-    final int updatedLevel = (updatedXp ~/ 1000) + 1;
+    final int updatedLevel = GamificationService.levelForXp(updatedXp);
 
     final int updatedStreak = await _calculateStreakForPermit(permit);
 
@@ -203,6 +212,7 @@ class UserProgressService {
     );
 
     await _syncAutoEcoleStudentProgress(updatedStats);
+    return reward;
   }
 
   Future<double> getThemeProgress({
@@ -280,6 +290,7 @@ class UserProgressService {
         uid: user.uid,
         permitCode: permitCode,
         stats: stats.toMap(),
+        displayName: user.displayName ?? user.email?.split('@').first,
       );
     } catch (_) {
       // Keep the local cache intact if the network is unavailable.

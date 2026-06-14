@@ -14,9 +14,16 @@ class ScanResultOverlay extends StatefulWidget {
 }
 
 class _ScanResultOverlayState extends State<ScanResultOverlay> {
-  int? _selectedAnswer;
+  late final List<int?> _selectedAnswers;
 
-  bool get _hasAnswered => _selectedAnswer != null;
+  bool get _hasAnswered => _selectedAnswers.every((answer) => answer != null);
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedAnswers =
+        List<int?>.filled(widget.result.allQuestions.length, null);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +54,8 @@ class _ScanResultOverlayState extends State<ScanResultOverlay> {
                     children: [
                       _buildSituationSummary(),
                       const SizedBox(height: 16),
-                      _buildPriorityQuestion(),
+                      _buildQuestions(),
                       if (_hasAnswered) ...[
-                        const SizedBox(height: 16),
-                        _buildCorrection(),
                         const SizedBox(height: 16),
                         _buildHazards(),
                         const SizedBox(height: 16),
@@ -147,48 +152,60 @@ class _ScanResultOverlayState extends State<ScanResultOverlay> {
     );
   }
 
-  Widget _buildPriorityQuestion() {
-    final question = widget.result.priorityQuestion;
+  Widget _buildQuestions() {
+    final questions = widget.result.allQuestions;
+
+    return Column(
+      children: [
+        for (var questionIndex = 0;
+            questionIndex < questions.length;
+            questionIndex++) ...[
+          _buildQuestionCard(questions[questionIndex], questionIndex),
+          if (questionIndex < questions.length - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuestionCard(PriorityQuestion question, int questionIndex) {
+    final selectedAnswer = _selectedAnswers[questionIndex];
+    final hasAnswered = selectedAnswer != null;
+    final isCorrect = selectedAnswer == question.correctIndex;
 
     return _SectionCard(
       icon: Icons.help_outline_rounded,
-      title: question.question,
+      iconColor: hasAnswered
+          ? isCorrect
+              ? AppColors.success
+              : AppColors.error
+          : AppColors.accentCyan,
+      title: 'Question ${questionIndex + 1} - ${question.question}',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var i = 0; i < question.answers.length; i++) ...[
             _AnswerTile(
               text: question.answers[i],
-              selected: _selectedAnswer == i,
-              correct: _hasAnswered && question.correctIndex == i,
-              wrong: _hasAnswered &&
-                  _selectedAnswer == i &&
-                  _selectedAnswer != question.correctIndex,
-              onTap: _hasAnswered
+              selected: selectedAnswer == i,
+              correct: hasAnswered && question.correctIndex == i,
+              wrong: hasAnswered &&
+                  selectedAnswer == i &&
+                  selectedAnswer != question.correctIndex,
+              onTap: hasAnswered
                   ? null
-                  : () => setState(() => _selectedAnswer = i),
+                  : () => setState(() => _selectedAnswers[questionIndex] = i),
             ),
             if (i < question.answers.length - 1) const SizedBox(height: 8),
           ],
+          if (hasAnswered) ...[
+            const SizedBox(height: 12),
+            _CorrectionPanel(
+              correct: isCorrect,
+              correction: question.correction,
+              ruleExplanation: question.ruleExplanation,
+            ),
+          ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildCorrection() {
-    final isCorrect =
-        _selectedAnswer == widget.result.priorityQuestion.correctIndex;
-
-    return _SectionCard(
-      icon: isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded,
-      iconColor: isCorrect ? AppColors.success : AppColors.error,
-      title: isCorrect ? 'Bonne reponse' : 'Correction immediate',
-      child: Text(
-        widget.result.priorityQuestion.correction,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 13,
-          height: 1.45,
-        ),
       ),
     );
   }
@@ -442,6 +459,88 @@ class _AnswerTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CorrectionPanel extends StatelessWidget {
+  final bool correct;
+  final String correction;
+  final String ruleExplanation;
+
+  const _CorrectionPanel({
+    required this.correct,
+    required this.correction,
+    required this.ruleExplanation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = correct ? AppColors.success : AppColors.error;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            correct ? Icons.check_circle_rounded : Icons.cancel_rounded,
+            color: color,
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  correct ? 'Correction: bonne reponse' : 'Correction',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  correction,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                    height: 1.45,
+                  ),
+                ),
+                if (ruleExplanation.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Regle a retenir',
+                    style: TextStyle(
+                      color: AppColors.accentCyan,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    ruleExplanation,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

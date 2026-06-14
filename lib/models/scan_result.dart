@@ -7,6 +7,8 @@ class DetectedRoadObject {
   final String risk;
   final IconData icon;
   final Color color;
+  final Rect? boundingBox;
+  final double? confidence;
 
   const DetectedRoadObject({
     required this.label,
@@ -15,6 +17,8 @@ class DetectedRoadObject {
     required this.risk,
     required this.icon,
     required this.color,
+    this.boundingBox,
+    this.confidence,
   });
 }
 
@@ -23,12 +27,14 @@ class PriorityQuestion {
   final List<String> answers;
   final int correctIndex;
   final String correction;
+  final String ruleExplanation;
 
   const PriorityQuestion({
     required this.question,
     required this.answers,
     required this.correctIndex,
     required this.correction,
+    this.ruleExplanation = '',
   });
 }
 
@@ -42,8 +48,14 @@ class ScanResult {
   final List<DetectedRoadObject> detectedObjects;
   final List<DetectedRoadObject> hazards;
   final PriorityQuestion priorityQuestion;
+  final List<PriorityQuestion> followUpQuestions;
   final List<String> scanChecklist;
   final bool generatedScene;
+
+  List<PriorityQuestion> get allQuestions => [
+        priorityQuestion,
+        ...followUpQuestions,
+      ];
 
   const ScanResult({
     required this.title,
@@ -55,6 +67,7 @@ class ScanResult {
     required this.hazards,
     required this.priorityQuestion,
     required this.scanChecklist,
+    this.followUpQuestions = const [],
     this.generatedScene = false,
     this.iconColor = Colors.amber,
   });

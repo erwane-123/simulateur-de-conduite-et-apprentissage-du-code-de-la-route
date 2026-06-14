@@ -6,7 +6,9 @@ import 'package:code_route_flutter/data/test_questions.dart'
     as legacy_questions;
 import 'package:code_route_flutter/models/test_question.dart';
 import 'package:code_route_flutter/services/firebase/firestore_service.dart';
+import 'package:code_route_flutter/services/gamification_service.dart';
 import 'package:code_route_flutter/services/user_progress_service.dart';
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,120 @@ enum QuestionInteractionStyle {
   typedAnswer,
   reorder,
   fillBlank,
+}
+
+class _XpPopup extends StatelessWidget {
+  final GamificationReward? reward;
+
+  const _XpPopup({required this.reward});
+
+  @override
+  Widget build(BuildContext context) {
+    final xp = reward?.xpGained ?? 0;
+    final level = reward?.current.level ?? 1;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.8, end: 1),
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: AppColors.accentGradient,
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentCyan.withValues(alpha: 0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.bolt_rounded, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(
+              '+$xp XP',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Niv. $level',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewBadgePill extends StatelessWidget {
+  final String id;
+
+  const _NewBadgePill({required this.id});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.workspace_premium_rounded,
+            color: AppColors.warning,
+            size: 17,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _labelFor(id),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _labelFor(String id) {
+    switch (id) {
+      case 'perfect':
+        return 'Sans faute';
+      case 'first_pass':
+        return 'Premier test';
+      case 'streak_3':
+        return 'Serie 3j';
+      case 'streak_7':
+        return 'Serie 7j';
+      case 'level_5':
+        return 'Niveau 5';
+      case 'xp_1000':
+        return '1000 XP';
+      default:
+        return 'Badge gagne';
+    }
+  }
 }
 
 class TestScreen extends StatefulWidget {
@@ -63,6 +179,7 @@ class _TestScreenState extends State<TestScreen> {
   int _correctStreak = 0;
 
   Timer? _timer;
+  late final ConfettiController _resultConfettiController;
   final TextEditingController _typedAnswerController = TextEditingController();
   final FocusNode _typedAnswerFocusNode = FocusNode();
   List<String> _currentReorderItems = const [];
@@ -72,6 +189,8 @@ class _TestScreenState extends State<TestScreen> {
   @override
   void initState() {
     super.initState();
+    _resultConfettiController =
+        ConfettiController(duration: const Duration(seconds: 2));
     _initTts();
     _loadQuestions();
   }
@@ -916,91 +1035,127 @@ class _TestScreenState extends State<TestScreen> {
         actualCount == 0 ? 0 : (_score / actualCount * 100).toInt();
     final passed = !immediateFail && (_score >= widget.requiredScore);
 
-    await _saveResults(_score, actualCount, passed);
+    final reward = await _saveResults(_score, actualCount, passed);
 
     if (!mounted) return;
+    _resultConfettiController.play();
 
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.cardBackground,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          passed ? 'Test reussi !' : 'Test echoue',
-          style: TextStyle(
-            color: passed ? AppColors.success : AppColors.warning,
-            fontWeight: FontWeight.bold,
+      builder: (_) => Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          ConfettiWidget(
+            confettiController: _resultConfettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            emissionFrequency: 0.04,
+            numberOfParticles: passed ? 24 : 10,
+            maxBlastForce: 20,
+            minBlastForce: 8,
+            colors: const [
+              AppColors.warning,
+              AppColors.success,
+              AppColors.accentCyan,
+              AppColors.secondaryPink,
+            ],
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$_score / $actualCount',
-              style: const TextStyle(
-                fontSize: 44,
+          AlertDialog(
+            backgroundColor: AppColors.cardBackground,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Text(
+              passed ? 'Test reussi !' : 'Test echoue',
+              style: TextStyle(
+                color: passed ? AppColors.success : AppColors.warning,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              '$percentage%',
-              style: const TextStyle(
-                fontSize: 24,
-                color: AppColors.textSecondary,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _XpPopup(reward: reward),
+                const SizedBox(height: 14),
+                Text(
+                  '$_score / $actualCount',
+                  style: const TextStyle(
+                    fontSize: 44,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '$percentage%',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  passed
+                      ? 'Felicitations ! Vous avez reussi ce test.'
+                      : immediateFail
+                          ? 'Vous avez fait une erreur, le defi est perdu.'
+                          : 'Il faut au moins ${widget.requiredScore}/${_questions.length} pour reussir.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white),
+                ),
+                if (reward != null && reward.newBadges.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: reward.newBadges
+                        .map((badge) => _NewBadgePill(id: badge))
+                        .toList(),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  'Quitter',
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              passed
-                  ? 'Felicitations ! Vous avez reussi ce test.'
-                  : immediateFail
-                      ? 'Vous avez fait une erreur, le defi est perdu.'
-                      : 'Il faut au moins ${widget.requiredScore}/${_questions.length} pour reussir.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Quitter',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryPurple,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                _questionIndex = 0;
-                _score = 0;
-                _correctStreak = 0;
-                _typedAnswerController.clear();
-              });
-              _startTimer();
-              _speakQuestion();
-            },
-            child: const Text('Recommencer'),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPurple,
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    _questionIndex = 0;
+                    _score = 0;
+                    _correctStreak = 0;
+                    _typedAnswerController.clear();
+                  });
+                  _startTimer();
+                  _speakQuestion();
+                },
+                child: const Text('Recommencer'),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Future<void> _saveResults(int score, int total, bool passed) async {
-    if (total <= 0) return;
+  Future<GamificationReward?> _saveResults(
+      int score, int total, bool passed) async {
+    if (total <= 0) return null;
 
-    await _progressService.recordTestResult(
+    final reward = await _progressService.recordTestResult(
       score: score,
       total: total,
       passed: passed,
@@ -1014,6 +1169,8 @@ class _TestScreenState extends State<TestScreen> {
       await prefs.remove('last_level_up');
       _showLevelUpDialog(lastLevelUp);
     }
+
+    return reward;
   }
 
   void _showLevelUpDialog(int newLevel) {
@@ -1670,6 +1827,7 @@ class _TestScreenState extends State<TestScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _resultConfettiController.dispose();
     _flutterTts.stop();
     _typedAnswerController.dispose();
     _typedAnswerFocusNode.dispose();
